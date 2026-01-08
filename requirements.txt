@@ -1,0 +1,9 @@
+fastapi[standard]
+uvicorn
+pydantic
+pandas
+numpy
+torch
+matplotlib
+requests
+python-multipart
