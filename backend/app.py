@@ -1,4 +1,5 @@
 
+from tempfile import tempdir
 import pandas as pd
 import os
 import numpy as np
@@ -395,3 +396,16 @@ class App():
             return aiRecommendation(raw_action[0])
         except Exception as e:
             return {"error": str(e)}
+    def get_survive_status(self, patient_id: int):
+        """
+        Get the survive status of a patient.
+        @param patient_id: id of patient as an string
+        @output: survive status of the patient as an string
+        """
+        try:
+            patient_df = self.df[self.df['icustayid'] == patient_id] #filter other patient data
+            status = patient_df['died_in_hosp'].to_list()
+            return int(status[-1])
+        except Exception as e:
+            return {"error": str(e)}
+

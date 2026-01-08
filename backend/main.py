@@ -109,6 +109,7 @@ async def get_patient_vitals(patient_id: int):
         return {
             "patient_id": patient_id,
             "num_records": len(patient_df),
+            "survive_status": app_instance.get_survive_status(patient_id),
             "vitals": vitals
         }
     except HTTPException:
@@ -266,6 +267,4 @@ async def predict_treatment_personalized(patient_id: int):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(api, host="0.0.0.0", port=8000)
+
