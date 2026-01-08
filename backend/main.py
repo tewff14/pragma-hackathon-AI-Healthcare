@@ -58,21 +58,21 @@ async def root():
     return {"status": "ok", "message": "Treatment Recommendation API is running"}
 
 
-@api.get("/patients", response_model=List[int])
+@api.get("/patients")
 async def get_patients():
     """Get list of all patient IDs"""
     try:
         patient_list = app_instance.get_patient_list()
-        return patient_list
+        return {"patient_ids": patient_list}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@api.get("/patient/{patient_id}/vitals", response_model=PatientVitals)
+@api.get("/patient/{patient_id}/vitals")
 async def get_patient_vitals(patient_id: int):
     """
-    Get all vital signs for a specific patient in a single response.
-    Combines HR, SpO2, RR, BP, and Temperature data.
+    Get all vital signs for a specific patient organized by state/record.
+    Returns vitals as a list of records for easy iteration.
     """
     try:
         df = app_instance.df
@@ -85,42 +85,32 @@ async def get_patient_vitals(patient_id: int):
         # Filter data for specific patient
         patient_df = df[df['icustayid'] == patient_id]
         
-        # Extract all vitals
-        heart_rate = patient_df['HR'].tolist()
-        spo2 = patient_df['SpO2'].tolist()
-        respiratory_rate = patient_df['RR'].tolist()
-        temperature = patient_df['Temp_C'].tolist()
-        
-        # Blood pressure as list of dicts
-        sys_bp = patient_df['SysBP'].tolist()
-        dia_bp = patient_df['DiaBP'].tolist()
-        blood_pressure = [
-            {"systolic": sys, "diastolic": dia} 
-            for sys, dia in zip(sys_bp, dia_bp)
-        ]
-        
         # Get timestamps if available
-        timestamps = None
+        timestamps = []
         if 'readable_charttime' in patient_df.columns:
             timestamps = patient_df['readable_charttime'].tolist()
         elif 'charttime' in patient_df.columns:
             timestamps = patient_df['charttime'].astype(str).tolist()
         
-        # Convert numpy types to native Python types
-        heart_rate = [float(x) if not pd.isna(x) else None for x in heart_rate]
-        spo2 = [float(x) if not pd.isna(x) else None for x in spo2]
-        respiratory_rate = [float(x) if not pd.isna(x) else None for x in respiratory_rate]
-        temperature = [float(x) if not pd.isna(x) else None for x in temperature]
+        # Build vitals list - one dict per state/record
+        vitals = []
+        for i in range(len(patient_df)):
+            row = patient_df.iloc[i]
+            vitals.append({
+                "hr": float(row['HR']) if not pd.isna(row['HR']) else None,
+                "rr": float(row['RR']) if not pd.isna(row['RR']) else None,
+                "spo2": float(row['SpO2']) if not pd.isna(row['SpO2']) else None,
+                "sbp": float(row['SysBP']) if not pd.isna(row['SysBP']) else None,
+                "dbp": float(row['DiaBP']) if not pd.isna(row['DiaBP']) else None,
+                "temp": float(row['Temp_C']) if not pd.isna(row['Temp_C']) else None,
+                "timestamp": timestamps[i] if i < len(timestamps) else None
+            })
         
-        return PatientVitals(
-            patient_id=patient_id,
-            heart_rate=heart_rate,
-            spo2=spo2,
-            respiratory_rate=respiratory_rate,
-            blood_pressure=blood_pressure,
-            temperature=temperature,
-            timestamps=timestamps
-        )
+        return {
+            "patient_id": patient_id,
+            "num_records": len(patient_df),
+            "vitals": vitals
+        }
     except HTTPException:
         raise
     except Exception as e:
